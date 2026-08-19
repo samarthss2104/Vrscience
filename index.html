@@ -2,99 +2,119 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>VR Pendulum Lab - Quest 3</title>
+    <title>VR Science Suite - Pendulum & Pulley</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.misc.min.js"></script>
 
     <script>
-      AFRAME.registerComponent('pendulum-lab', {
-        schema: {
-          length: {type: 'number', default: 2.0},
-          mass: {type: 'number', default: 1.0},
-          duration: {type: 'number', default: 10.0},
-          gravity: {type: 'number', default: 9.81}
-        },
-
+      // --- CORE SYSTEM: MODE SWITCHING ---
+      AFRAME.registerComponent('lab-manager', {
         init: function () {
-          this.isRunning = false;
-          this.elapsedTime = 0;
-          this.thetaMax = 0.5; // Swing angle in radians (approx 30 degrees)
-          
-          // UI References
-          this.lengthText = document.querySelector('#l-val');
-          this.massText = document.querySelector('#m-val');
-          this.timeText = document.querySelector('#t-val');
-          this.formulaText = document.querySelector('#formula-display');
-          
-          this.updateCalculations();
+          this.mode = 'pendulum';
+          this.updateVisibility();
         },
-
-        updateCalculations: function () {
-          // T = 2 * PI * sqrt(L/g)
-          this.period = 2 * Math.PI * Math.sqrt(this.data.length / this.data.gravity);
-          this.totalOscillations = this.data.duration / this.period;
-          
-          // Update 3D visual length
-          const visualString = document.querySelector('#string');
-          const visualBob = document.querySelector('#bob');
-          visualString.setAttribute('height', this.data.length);
-          visualString.setAttribute('position', `0 ${-this.data.length / 2} 0`);
-          visualBob.setAttribute('position', `0 ${-this.data.length} 0`);
-          visualBob.setAttribute('radius', 0.05 + (this.data.mass * 0.05));
-
-          // Update UI Text
-          this.lengthText.setAttribute('value', this.data.length.toFixed(1) + 'm');
-          this.massText.setAttribute('value', this.data.mass.toFixed(1) + 'kg');
-          this.timeText.setAttribute('value', this.data.duration.toFixed(0) + 's');
-          
-          this.formulaText.setAttribute('value', 
-            `FORMULA:\nT = 2*PI*sqrt(L/g)\n\n` +
-            `Period (T): ${this.period.toFixed(2)}s\n` +
-            `Total Oscillations:\n${this.totalOscillations.toFixed(2)}`
-          );
+        toggleMode: function() {
+          this.mode = (this.mode === 'pendulum') ? 'pulley' : 'pendulum';
+          this.updateVisibility();
         },
-
-        tick: function (time, timeDelta) {
-          if (!this.isRunning) return;
-
-          const deltaSeconds = timeDelta / 1000;
-          this.elapsedTime += deltaSeconds;
-
-          if (this.elapsedTime >= this.data.duration) {
-            this.isRunning = false;
-            this.elapsedTime = 0;
-            this.el.setAttribute('rotation', '0 0 0');
-            return;
-          }
-
-          // Simple Harmonic Motion formula: theta(t) = thetaMax * cos(2*PI*t / T)
-          const angle = this.thetaMax * Math.cos((2 * Math.PI * this.elapsedTime) / this.period);
-          this.el.setAttribute('rotation', `0 0 ${angle * (180 / Math.PI)}`);
-        },
-
-        startExp: function () {
-          this.elapsedTime = 0;
-          this.isRunning = true;
-        },
-
-        adjust: function(type, amt) {
-          if (type === 'l') this.data.length = Math.max(0.5, this.data.length + amt);
-          if (type === 'm') this.data.mass = Math.max(0.2, this.data.mass + amt);
-          if (type === 't') this.data.duration = Math.max(1, this.data.duration + amt);
-          this.updateCalculations();
+        updateVisibility: function() {
+          document.querySelector('#pendulum-lab-group').setAttribute('visible', this.mode === 'pendulum');
+          document.querySelector('#pulley-lab-group').setAttribute('visible', this.mode === 'pulley');
+          document.querySelector('#mode-text').setAttribute('value', "Current Mode: " + this.mode.toUpperCase());
         }
       });
 
-      // Button Click Handler
-      AFRAME.registerComponent('ui-btn', {
-        schema: { type: {type: 'string'} },
+      // --- PENDULUM LOGIC ---
+      AFRAME.registerComponent('pendulum-lab', {
+        schema: { length: {default: 2}, mass: {default: 1}, duration: {default: 10} },
+        init: function () {
+          this.isRunning = false;
+          this.elapsedTime = 0;
+          this.updateCalculations();
+        },
+        updateCalculations: function () {
+          this.period = 2 * Math.PI * Math.sqrt(this.data.length / 9.81);
+          this.totalOsc = this.data.duration / this.period;
+          document.querySelector('#l-val').setAttribute('value', this.data.length.toFixed(1) + 'm');
+          document.querySelector('#m-val').setAttribute('value', this.data.mass.toFixed(1) + 'kg');
+          document.querySelector('#t-val').setAttribute('value', this.data.duration.toFixed(0) + 's');
+          document.querySelector('#formula-display').setAttribute('value', 
+            `PENDULUM MATH\nT = 2*PI*sqrt(L/g)\nPeriod: ${this.period.toFixed(2)}s\nOscillations: ${this.totalOsc.toFixed(2)}\n(Note: Mass does not affect T)`);
+          
+          document.querySelector('#string').setAttribute('height', this.data.length);
+          document.querySelector('#string').setAttribute('position', `0 ${-this.data.length/2} 0`);
+          document.querySelector('#bob').setAttribute('position', `0 ${-this.data.length} 0`);
+          document.querySelector('#bob').setAttribute('radius', 0.05 + (this.data.mass * 0.03));
+        },
+        tick: function (t, dt) {
+          if (!this.isRunning) return;
+          this.elapsedTime += dt/1000;
+          if (this.elapsedTime >= this.data.duration) { this.isRunning = false; return; }
+          const angle = 0.5 * Math.cos((2 * Math.PI * this.elapsedTime) / this.period);
+          this.el.setAttribute('rotation', `0 0 ${angle * (180/Math.PI)}`);
+        }
+      });
+
+      // --- PULLEY LOGIC ---
+      AFRAME.registerComponent('pulley-lab', {
+        schema: { numPulleys: {default: 1}, effort: {default: 10}, loadMass: {default: 0} },
+        init: function () {
+          this.bucketY = 1.0;
+          this.selectedObjectMass = 0;
+          this.updateMath();
+        },
+        updateMath: function() {
+          const weight = this.data.loadMass * 9.81;
+          const mechAdv = this.data.numPulleys;
+          const tension = weight / mechAdv;
+          const requiredEffort = weight / mechAdv;
+          
+          document.querySelector('#pulley-math').setAttribute('value', 
+            `PULLEY MATH\nLoad: ${weight.toFixed(1)} N\nMech. Adv: ${mechAdv}\nTension per rope: ${tension.toFixed(1)} N\nEffort Applied: ${this.data.effort} N`);
+          
+          document.querySelector('#p-num-val').setAttribute('value', this.data.numPulleys);
+          document.querySelector('#p-eff-val').setAttribute('value', this.data.effort + ' N');
+          document.querySelector('#p-mass-val').setAttribute('value', this.data.loadMass.toFixed(1) + ' kg');
+        },
+        tick: function(t, dt) {
+          const weight = this.data.loadMass * 9.81;
+          const forceBalance = this.data.effort - (weight / this.data.numPulleys);
+          
+          if (Math.abs(forceBalance) > 0.1) {
+            this.bucketY += forceBalance * 0.001; // Movement speed
+            this.bucketY = Math.max(0.5, Math.min(2.5, this.bucketY));
+            document.querySelector('#bucket-group').setAttribute('position', `0 ${this.bucketY} 0`);
+            document.querySelector('#pulley-rope').setAttribute('height', 3 - this.bucketY);
+            document.querySelector('#pulley-rope').setAttribute('position', `0 ${(3 + this.bucketY)/2} 0`);
+          }
+        }
+      });
+
+      // --- UI CLICK HANDLER ---
+      AFRAME.registerComponent('ui-click', {
+        schema: { action: {type: 'string'}, val: {type: 'number'} },
         init: function () {
           this.el.addEventListener('click', () => {
-            const lab = document.querySelector('#pendulum-pivot').components['pendulum-lab'];
-            if (this.data.type === 'start') lab.startExp();
-            else {
-              const parts = this.data.type.split('_');
-              lab.adjust(parts[0], parseFloat(parts[1]));
+            const pLab = document.querySelector('#pendulum-pivot').components['pendulum-lab'];
+            const pullLab = document.querySelector('#pulley-system').components['pulley-lab'];
+            const manager = document.querySelector('a-scene').components['lab-manager'];
+
+            switch(this.data.action) {
+              case 'mode': manager.toggleMode(); break;
+              // Pendulum
+              case 'l': pLab.data.length = Math.max(0.5, pLab.data.length + this.data.val); pLab.updateCalculations(); break;
+              case 'm': pLab.data.mass = Math.max(0.1, pLab.data.mass + this.data.val); pLab.updateCalculations(); break;
+              case 't': pLab.data.duration = Math.max(1, pLab.data.duration + this.data.val); pLab.updateCalculations(); break;
+              case 'start': pLab.elapsedTime = 0; pLab.isRunning = true; break;
+              // Pulley
+              case 'p_n': pullLab.data.numPulleys = Math.max(1, Math.min(4, pullLab.data.numPulleys + this.data.val)); pullLab.updateMath(); break;
+              case 'p_e': pullLab.data.effort = Math.max(0, pullLab.data.effort + this.data.val); pullLab.updateMath(); break;
+              case 'sel_obj': 
+                pullLab.selectedObjectMass = this.data.val;
+                document.querySelector('#sel-text').setAttribute('value', "Selected: " + this.data.val + "kg");
+                break;
+              case 'add_obj': pullLab.data.loadMass += pullLab.selectedObjectMass; pullLab.updateMath(); break;
+              case 'reset_p': pullLab.data.loadMass = 0; pullLab.updateMath(); break;
             }
           });
         }
@@ -102,64 +122,108 @@
     </script>
   </head>
   <body>
-    <a-scene background="color: #222" cursor="rayOrigin: mouse">
-      
-      <!-- Quest 3 Controllers -->
+    <a-scene lab-manager cursor="rayOrigin: mouse">
       <a-entity laser-controls="hand: right"></a-entity>
       <a-entity laser-controls="hand: left"></a-entity>
 
-      <!-- Experiment Environment -->
-      <a-entity id="lab-setup" position="0 0 -2">
-        
-        <!-- The Support Beam -->
-        <a-box position="0 3 0" width="3" height="0.1" depth="0.1" color="#888"></a-box>
-
-        <!-- The Pendulum -->
-        <a-entity id="pendulum-pivot" position="0 3 0" pendulum-lab>
-          <a-cylinder id="string" radius="0.01" color="#AAA"></a-cylinder>
-          <a-sphere id="bob" color="#EF2D5E"></a-sphere>
-        </a-entity>
-
-        <!-- CONTROL PANEL (Left) -->
-        <a-entity position="-2 1.5 0">
-          <a-text value="CONTROLS" position="0 1 0" align="center" width="4"></a-text>
-          
-          <!-- Length Controls -->
-          <a-text value="Length" position="-0.8 0.6 0" width="3"></a-text>
-          <a-box ui-btn="type: l_0.5" position="0 0.6 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-          <a-box ui-btn="type: l_-0.5" position="0.3 0.6 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
-          <a-text id="l-val" value="2.0m" position="0.6 0.6 0" width="3"></a-text>
-
-          <!-- Mass Controls -->
-          <a-text value="Mass" position="-0.8 0.2 0" width="3"></a-text>
-          <a-box ui-btn="type: m_0.2" position="0 0.2 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-          <a-box ui-btn="type: m_-0.2" position="0.3 0.2 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
-          <a-text id="m-val" value="1.0kg" position="0.6 0.2 0" width="3"></a-text>
-
-          <!-- Time Controls -->
-          <a-text value="Time" position="-0.8 -0.2 0" width="3"></a-text>
-          <a-box ui-btn="type: t_5" position="0 -0.2 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-          <a-box ui-btn="type: t_-5" position="0.3 -0.2 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
-          <a-text id="t-val" value="10s" position="0.6 -0.2 0" width="3"></a-text>
-
-          <!-- Start Button -->
-          <a-box ui-btn="type: start" position="0 -0.7 0" width="1" height="0.3" depth="0.1" color="blue">
-            <a-text value="START" align="center" position="0 0 0.06" width="4"></a-text>
-          </a-box>
-        </a-entity>
-
-        <!-- DATA PANEL (Right) -->
-        <a-entity position="2 1.5 0">
-          <a-plane color="#333" width="2" height="2" position="0 0.2 -0.01"></a-plane>
-          <a-text id="formula-display" value="Loading..." position="0 0.2 0.05" align="center" width="3.5"></a-text>
-        </a-entity>
-
+      <!-- GLOBAL UI: MODE SWITCHER -->
+      <a-entity position="0 3.5 -2">
+        <a-text id="mode-text" value="Current Mode: PENDULUM" align="center" width="5"></a-text>
+        <a-box ui-click="action: mode" position="0 -0.4 0" width="1.5" height="0.3" depth="0.1" color="#FF8800">
+          <a-text value="SWITCH MODE" align="center" position="0 0 0.06" width="3"></a-text>
+        </a-box>
       </a-entity>
 
-      <!-- Floor -->
-      <a-grid static-body></a-grid>
-      <a-camera position="0 1.6 1"></a-camera>
+      <!-- ================= PENDULUM MODE ================= -->
+      <a-entity id="pendulum-lab-group">
+        <a-entity position="0 0 -2">
+          <a-box position="0 3 0" width="3" height="0.1" depth="0.1" color="#888"></a-box>
+          <a-entity id="pendulum-pivot" position="0 3 0" pendulum-lab>
+            <a-cylinder id="string" radius="0.01" color="#AAA"></a-cylinder>
+            <a-sphere id="bob" color="#EF2D5E"></a-sphere>
+          </a-entity>
+          <!-- Controls -->
+          <a-entity position="-2 1.5 0">
+            <a-text value="PENDULUM CONTROLS" align="center" width="3"></a-text>
+            <a-text value="Length" position="-0.8 0.6 0" width="2.5"></a-text>
+            <a-box ui-click="action: l; val: 0.5" position="0 0.6 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+            <a-box ui-click="action: l; val: -0.5" position="0.3 0.6 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+            <a-text id="l-val" value="2.0m" position="0.6 0.6 0" width="2.5"></a-text>
 
+            <a-text value="Mass" position="-0.8 0.2 0" width="2.5"></a-text>
+            <a-box ui-click="action: m; val: 0.2" position="0 0.2 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+            <a-box ui-click="action: m; val: -0.2" position="0.3 0.2 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+            <a-text id="m-val" value="1.0kg" position="0.6 0.2 0" width="2.5"></a-text>
+
+            <a-box ui-click="action: start" position="0 -0.5 0" width="1" height="0.3" depth="0.1" color="blue">
+              <a-text value="START SWING" align="center" position="0 0 0.06" width="3"></a-text>
+            </a-box>
+          </a-entity>
+          <a-entity position="2 1.5 0">
+            <a-plane color="#333" width="2" height="1.5" position="0 0 -0.01"></a-plane>
+            <a-text id="formula-display" value="Math..." align="center" width="3"></a-text>
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+      <!-- ================= PULLEY MODE ================= -->
+      <a-entity id="pulley-lab-group" visible="false">
+        <a-entity id="pulley-system" position="0 0 -2" pulley-lab>
+          <!-- Support and Pulleys -->
+          <a-box position="0 3 0" width="1" height="0.1" depth="0.1" color="#888"></a-box>
+          <a-cylinder id="pulley-wheel" position="0 2.9 0" rotation="90 0 0" radius="0.15" height="0.1" color="#555"></a-cylinder>
+          
+          <!-- Rope and Bucket -->
+          <a-cylinder id="pulley-rope" radius="0.01" color="#EEE"></a-cylinder>
+          <a-entity id="bucket-group">
+            <a-cylinder id="bucket" radius="0.2" height="0.3" color="#666" open-ended="false"></a-cylinder>
+            <a-text id="p-mass-val" value="0kg" align="center" position="0 0 0.21" width="3"></a-text>
+          </a-entity>
+
+          <!-- Pulley Controls (Left) -->
+          <a-entity position="-2 1.5 0">
+            <a-text value="PULLEY SETTINGS" align="center" width="3" position="0 1.2 0"></a-text>
+            
+            <a-text value="Pulleys (Adv)" position="-0.8 0.8 0" width="2.5"></a-text>
+            <a-box ui-click="action: p_n; val: 1" position="0 0.8 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+            <a-box ui-click="action: p_n; val: -1" position="0.3 0.8 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+            <a-text id="p-num-val" value="1" position="0.6 0.8 0" width="2.5"></a-text>
+
+            <a-text value="Effort (N)" position="-0.8 0.4 0" width="2.5"></a-text>
+            <a-box ui-click="action: p_e; val: 5" position="0 0.4 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+            <a-box ui-click="action: p_e; val: -5" position="0.3 0.4 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+            <a-text id="p-eff-val" value="10N" position="0.6 0.4 0" width="2.5"></a-text>
+
+            <a-text id="sel-text" value="Selected: 0kg" position="0 0 0" align="center" width="2.5"></a-text>
+            <a-box ui-click="action: add_obj" position="0 -0.4 0" width="1.2" height="0.3" depth="0.1" color="blue">
+              <a-text value="ADD TO BUCKET" align="center" position="0 0 0.06" width="2.5"></a-text>
+            </a-box>
+            <a-box ui-click="action: reset_p" position="0 -0.8 0" width="1.2" height="0.2" depth="0.1" color="#555">
+              <a-text value="EMPTY BUCKET" align="center" position="0 0 0.06" width="2"></a-text>
+            </a-box>
+          </a-entity>
+
+          <!-- Object Shelf (Right) -->
+          <a-entity position="2 1 0">
+            <a-text value="OBJECT SHELF" align="center" width="3" position="0 1.5 0"></a-text>
+            <a-sphere ui-click="action: sel_obj; val: 1" position="-0.5 1 0" radius="0.1" color="yellow"></a-sphere>
+            <a-text value="1kg" position="-0.5 0.8 0" align="center" width="2"></a-text>
+            
+            <a-sphere ui-click="action: sel_obj; val: 5" position="0 1 0" radius="0.15" color="orange"></a-sphere>
+            <a-text value="5kg" position="0 0.8 0" align="center" width="2"></a-text>
+            
+            <a-sphere ui-click="action: sel_obj; val: 10" position="0.5 1 0" radius="0.2" color="purple"></a-sphere>
+            <a-text value="10kg" position="0.5 0.8 0" align="center" width="2"></a-text>
+
+            <a-plane color="#333" width="2" height="1" position="0 0 0"></a-plane>
+            <a-text id="pulley-math" value="Math..." align="center" width="3" position="0 0 0.05"></a-text>
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+      <a-sky color="#111"></a-sky>
+      <a-grid></a-grid>
+      <a-camera position="0 1.6 1"></a-camera>
     </a-scene>
   </body>
 </html>
