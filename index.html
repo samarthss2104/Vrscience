@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>VR Science Lab</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+    <script src="https://unpkg.com/super-hands@^3.0.3/dist/super-hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.misc.min.js"></script>
+
+    <script>
+      // Logic for the chemistry experiment
+      AFRAME.registerComponent('reaction', {
+        init: function () {
+          this.el.addEventListener('collide', (e) => {
+            const collidedObj = e.detail.body.el;
+            if (collidedObj.id === 'beaker-sensor') {
+              const liquid = document.querySelector('#liquid');
+              const newColor = this.el.getAttribute('material').color;
+              liquid.setAttribute('material', 'color', newColor);
+            }
+          });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <a-scene physics="debug: false; gravity: -9.8">
+      
+      <!-- Environment -->
+      <a-sky color="#111"></a-sky>
+      <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
+
+      <!-- Lab Table -->
+      <a-box id="table" static-body position="0 0.6 -1" width="2" height="0.1" depth="1" color="#444"></a-box>
+
+      <!-- Beaker Setup -->
+      <a-entity position="0 0.65 -1">
+        <a-cylinder radius="0.15" height="0.3" material="opacity: 0.3; transparent: true; color: #fff"></a-cylinder>
+        <a-cylinder id="beaker-sensor" static-body radius="0.15" height="0.1" visible="false"></a-cylinder>
+        <a-cylinder id="liquid" radius="0.14" height="0.1" position="0 -0.05 0" color="#fff"></a-cylinder>
+      </a-entity>
+
+      <!-- Experiment Items (The Chemicals) -->
+      <a-sphere reaction dynamic-body class="grabbable" position="-0.4 1.2 -1" radius="0.08" color="#ff0000" hoverable grabbable></a-sphere>
+      <a-sphere reaction dynamic-body class="grabbable" position="0.4 1.2 -1" radius="0.08" color="#0000ff" hoverable grabbable></a-sphere>
+      <a-sphere reaction dynamic-body class="grabbable" position="0 1.2 -0.8" radius="0.08" color="#00ff00" hoverable grabbable></a-sphere>
+
+      <!-- VR Player Controls -->
+      <a-entity id="rig">
+        <a-camera position="0 1.6 1.5" look-controls wasd-controls>
+          <a-cursor fuse="false" raycaster="objects: .grabbable"></a-cursor>
+        </a-camera>
+        <a-entity sphere-collider="objects: .grabbable" super-hands hand-controls="hand: left"></a-entity>
+        <a-entity sphere-collider="objects: .grabbable" super-hands hand-controls="hand: right"></a-entity>
+      </a-entity>
+
+    </a-scene>
+  </body>
+</html>
