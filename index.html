@@ -2,21 +2,99 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Quest 3 Pro Lab</title>
+    <title>VR Pendulum Lab - Quest 3</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
-    <script src="https://unpkg.com/super-hands@^3.0.3/dist/super-hands.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.misc.min.js"></script>
 
     <script>
-      // The Chemistry Logic (unchanged)
-      AFRAME.registerComponent('chemical-logic', {
+      AFRAME.registerComponent('pendulum-lab', {
+        schema: {
+          length: {type: 'number', default: 2.0},
+          mass: {type: 'number', default: 1.0},
+          duration: {type: 'number', default: 10.0},
+          gravity: {type: 'number', default: 9.81}
+        },
+
         init: function () {
-          this.el.addEventListener('collide', (e) => {
-            const target = e.detail.body.el;
-            if (target && target.id === 'beaker-base') {
-              const liquid = document.querySelector('#liquid-visual');
-              liquid.setAttribute('material', 'color', this.el.getAttribute('material').color);
+          this.isRunning = false;
+          this.elapsedTime = 0;
+          this.thetaMax = 0.5; // Swing angle in radians (approx 30 degrees)
+          
+          // UI References
+          this.lengthText = document.querySelector('#l-val');
+          this.massText = document.querySelector('#m-val');
+          this.timeText = document.querySelector('#t-val');
+          this.formulaText = document.querySelector('#formula-display');
+          
+          this.updateCalculations();
+        },
+
+        updateCalculations: function () {
+          // T = 2 * PI * sqrt(L/g)
+          this.period = 2 * Math.PI * Math.sqrt(this.data.length / this.data.gravity);
+          this.totalOscillations = this.data.duration / this.period;
+          
+          // Update 3D visual length
+          const visualString = document.querySelector('#string');
+          const visualBob = document.querySelector('#bob');
+          visualString.setAttribute('height', this.data.length);
+          visualString.setAttribute('position', `0 ${-this.data.length / 2} 0`);
+          visualBob.setAttribute('position', `0 ${-this.data.length} 0`);
+          visualBob.setAttribute('radius', 0.05 + (this.data.mass * 0.05));
+
+          // Update UI Text
+          this.lengthText.setAttribute('value', this.data.length.toFixed(1) + 'm');
+          this.massText.setAttribute('value', this.data.mass.toFixed(1) + 'kg');
+          this.timeText.setAttribute('value', this.data.duration.toFixed(0) + 's');
+          
+          this.formulaText.setAttribute('value', 
+            `FORMULA:\nT = 2*PI*sqrt(L/g)\n\n` +
+            `Period (T): ${this.period.toFixed(2)}s\n` +
+            `Total Oscillations:\n${this.totalOscillations.toFixed(2)}`
+          );
+        },
+
+        tick: function (time, timeDelta) {
+          if (!this.isRunning) return;
+
+          const deltaSeconds = timeDelta / 1000;
+          this.elapsedTime += deltaSeconds;
+
+          if (this.elapsedTime >= this.data.duration) {
+            this.isRunning = false;
+            this.elapsedTime = 0;
+            this.el.setAttribute('rotation', '0 0 0');
+            return;
+          }
+
+          // Simple Harmonic Motion formula: theta(t) = thetaMax * cos(2*PI*t / T)
+          const angle = this.thetaMax * Math.cos((2 * Math.PI * this.elapsedTime) / this.period);
+          this.el.setAttribute('rotation', `0 0 ${angle * (180 / Math.PI)}`);
+        },
+
+        startExp: function () {
+          this.elapsedTime = 0;
+          this.isRunning = true;
+        },
+
+        adjust: function(type, amt) {
+          if (type === 'l') this.data.length = Math.max(0.5, this.data.length + amt);
+          if (type === 'm') this.data.mass = Math.max(0.2, this.data.mass + amt);
+          if (type === 't') this.data.duration = Math.max(1, this.data.duration + amt);
+          this.updateCalculations();
+        }
+      });
+
+      // Button Click Handler
+      AFRAME.registerComponent('ui-btn', {
+        schema: { type: {type: 'string'} },
+        init: function () {
+          this.el.addEventListener('click', () => {
+            const lab = document.querySelector('#pendulum-pivot').components['pendulum-lab'];
+            if (this.data.type === 'start') lab.startExp();
+            else {
+              const parts = this.data.type.split('_');
+              lab.adjust(parts[0], parseFloat(parts[1]));
             }
           });
         }
@@ -24,63 +102,63 @@
     </script>
   </head>
   <body>
-    <!-- physics="debug: true" will help you see if your hand "bubbles" are touching the balls -->
-    <a-scene physics="debug: false; gravity: -9.8">
+    <a-scene background="color: #222" cursor="rayOrigin: mouse">
       
-      <a-sky color="#111"></a-sky>
-      <a-plane static-body rotation="-90 0 0" width="50" height="50" color="#222"></a-plane>
+      <!-- Quest 3 Controllers -->
+      <a-entity laser-controls="hand: right"></a-entity>
+      <a-entity laser-controls="hand: left"></a-entity>
 
-      <!-- Table -->
-      <a-box id="table" static-body position="0 0.7 -0.8" width="1.5" height="0.1" depth="0.8" color="#444"></a-box>
+      <!-- Experiment Environment -->
+      <a-entity id="lab-setup" position="0 0 -2">
+        
+        <!-- The Support Beam -->
+        <a-box position="0 3 0" width="3" height="0.1" depth="0.1" color="#888"></a-box>
 
-      <!-- Beaker -->
-      <a-entity position="0 0.8 -0.8">
-        <a-cylinder radius="0.15" height="0.3" material="opacity: 0.3; transparent: true; color: white"></a-cylinder>
-        <a-cylinder id="beaker-base" static-body radius="0.15" height="0.05" position="0 -0.1 0" visible="false"></a-cylinder>
-        <a-cylinder id="liquid-visual" radius="0.14" height="0.1" position="0 -0.1 0" color="#fff"></a-cylinder>
-      </a-entity>
-
-      <!-- Balls: Added 'clickable' and 'grabbable' requirements -->
-      <a-sphere class="clickable" chemical-logic
-                dynamic-body="shape: sphere; mass: 1" 
-                hoverable grabbable draggable droppable
-                position="-0.3 1 -0.8" radius="0.1" color="red"></a-sphere>
-
-      <a-sphere class="clickable" chemical-logic
-                dynamic-body="shape: sphere; mass: 1" 
-                hoverable grabbable draggable droppable
-                position="0.3 1 -0.8" radius="0.1" color="blue"></a-sphere>
-
-      <!-- Quest 3 Setup -->
-      <a-entity id="rig">
-        <a-camera position="0 1.6 0.5"></a-camera>
-
-        <!-- LEFT HAND -->
-        <a-entity id="L-hand"
-                  oculus-touch-controls="hand: left"
-                  physics-collider
-                  static-body="shape: sphere; sphereRadius: 0.05"
-                  super-hands="colliderEvent: collisions; 
-                               colliderEventProperty: els; 
-                               colliderEndEvent: collisions; 
-                               colliderEndEventProperty: clearedEls"
-                  raycaster="objects: .clickable; showLine: true; far: 10"
-                  hand-controls="hand: left; handModelStyle: lowPoly">
+        <!-- The Pendulum -->
+        <a-entity id="pendulum-pivot" position="0 3 0" pendulum-lab>
+          <a-cylinder id="string" radius="0.01" color="#AAA"></a-cylinder>
+          <a-sphere id="bob" color="#EF2D5E"></a-sphere>
         </a-entity>
 
-        <!-- RIGHT HAND -->
-        <a-entity id="R-hand"
-                  oculus-touch-controls="hand: right"
-                  physics-collider
-                  static-body="shape: sphere; sphereRadius: 0.05"
-                  super-hands="colliderEvent: collisions; 
-                               colliderEventProperty: els; 
-                               colliderEndEvent: collisions; 
-                               colliderEndEventProperty: clearedEls"
-                  raycaster="objects: .clickable; showLine: true; far: 10"
-                  hand-controls="hand: right; handModelStyle: lowPoly">
+        <!-- CONTROL PANEL (Left) -->
+        <a-entity position="-2 1.5 0">
+          <a-text value="CONTROLS" position="0 1 0" align="center" width="4"></a-text>
+          
+          <!-- Length Controls -->
+          <a-text value="Length" position="-0.8 0.6 0" width="3"></a-text>
+          <a-box ui-btn="type: l_0.5" position="0 0.6 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+          <a-box ui-btn="type: l_-0.5" position="0.3 0.6 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+          <a-text id="l-val" value="2.0m" position="0.6 0.6 0" width="3"></a-text>
+
+          <!-- Mass Controls -->
+          <a-text value="Mass" position="-0.8 0.2 0" width="3"></a-text>
+          <a-box ui-btn="type: m_0.2" position="0 0.2 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+          <a-box ui-btn="type: m_-0.2" position="0.3 0.2 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+          <a-text id="m-val" value="1.0kg" position="0.6 0.2 0" width="3"></a-text>
+
+          <!-- Time Controls -->
+          <a-text value="Time" position="-0.8 -0.2 0" width="3"></a-text>
+          <a-box ui-btn="type: t_5" position="0 -0.2 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
+          <a-box ui-btn="type: t_-5" position="0.3 -0.2 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+          <a-text id="t-val" value="10s" position="0.6 -0.2 0" width="3"></a-text>
+
+          <!-- Start Button -->
+          <a-box ui-btn="type: start" position="0 -0.7 0" width="1" height="0.3" depth="0.1" color="blue">
+            <a-text value="START" align="center" position="0 0 0.06" width="4"></a-text>
+          </a-box>
         </a-entity>
+
+        <!-- DATA PANEL (Right) -->
+        <a-entity position="2 1.5 0">
+          <a-plane color="#333" width="2" height="2" position="0 0.2 -0.01"></a-plane>
+          <a-text id="formula-display" value="Loading..." position="0 0.2 0.05" align="center" width="3.5"></a-text>
+        </a-entity>
+
       </a-entity>
+
+      <!-- Floor -->
+      <a-grid static-body></a-grid>
+      <a-camera position="0 1.6 1"></a-camera>
 
     </a-scene>
   </body>
