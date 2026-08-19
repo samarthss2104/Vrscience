@@ -2,26 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Quest 3 Science Lab</title>
-    <!-- Core A-Frame -->
+    <title>Quest 3 Pro Lab</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <!-- Physics -->
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
-    <!-- Super Hands (The interaction "Brain") -->
     <script src="https://unpkg.com/super-hands@^3.0.3/dist/super-hands.min.js"></script>
-    <!-- Extras for hand models -->
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.misc.min.js"></script>
 
     <script>
-      // The Chemistry Logic
+      // The Chemistry Logic (unchanged)
       AFRAME.registerComponent('chemical-logic', {
         init: function () {
           this.el.addEventListener('collide', (e) => {
             const target = e.detail.body.el;
             if (target && target.id === 'beaker-base') {
               const liquid = document.querySelector('#liquid-visual');
-              const color = this.el.getAttribute('material').color;
-              liquid.setAttribute('material', 'color', color);
+              liquid.setAttribute('material', 'color', this.el.getAttribute('material').color);
             }
           });
         }
@@ -29,62 +24,62 @@
     </script>
   </head>
   <body>
-    <!-- We added "raycaster" to the scene so it knows how to "click" from far away -->
+    <!-- physics="debug: true" will help you see if your hand "bubbles" are touching the balls -->
     <a-scene physics="debug: false; gravity: -9.8">
       
-      <!-- Sky & Ground -->
-      <a-sky color="#1a1a1a"></a-sky>
-      <a-plane static-body rotation="-90 0 0" width="50" height="50" color="#333"></a-plane>
+      <a-sky color="#111"></a-sky>
+      <a-plane static-body rotation="-90 0 0" width="50" height="50" color="#222"></a-plane>
 
-      <!-- The Table -->
+      <!-- Table -->
       <a-box id="table" static-body position="0 0.7 -0.8" width="1.5" height="0.1" depth="0.8" color="#444"></a-box>
 
-      <!-- The Beaker (Static) -->
+      <!-- Beaker -->
       <a-entity position="0 0.8 -0.8">
         <a-cylinder radius="0.15" height="0.3" material="opacity: 0.3; transparent: true; color: white"></a-cylinder>
-        <!-- The invisible physics sensor -->
         <a-cylinder id="beaker-base" static-body radius="0.15" height="0.05" position="0 -0.1 0" visible="false"></a-cylinder>
-        <!-- The visual liquid -->
         <a-cylinder id="liquid-visual" radius="0.14" height="0.1" position="0 -0.1 0" color="#fff"></a-cylinder>
       </a-entity>
 
-      <!-- Interactive Chemicals (Grabbable) -->
-      <!-- Red -->
+      <!-- Balls: Added 'clickable' and 'grabbable' requirements -->
       <a-sphere class="clickable" chemical-logic
-                dynamic-body="shape: sphere; mass: 2" 
+                dynamic-body="shape: sphere; mass: 1" 
                 hoverable grabbable draggable droppable
-                position="-0.3 1.2 -0.8" radius="0.1" color="red"></a-sphere>
-      <!-- Blue -->
-      <a-sphere class="clickable" chemical-logic
-                dynamic-body="shape: sphere; mass: 2" 
-                hoverable grabbable draggable droppable
-                position="0.3 1.2 -0.8" radius="0.1" color="blue"></a-sphere>
+                position="-0.3 1 -0.8" radius="0.1" color="red"></a-sphere>
 
-      <!-- Meta Quest 3 Controllers Setup -->
+      <a-sphere class="clickable" chemical-logic
+                dynamic-body="shape: sphere; mass: 1" 
+                hoverable grabbable draggable droppable
+                position="0.3 1 -0.8" radius="0.1" color="blue"></a-sphere>
+
+      <!-- Quest 3 Setup -->
       <a-entity id="rig">
-        <a-camera position="0 1.6 0.5" look-controls></a-camera>
+        <a-camera position="0 1.6 0.5"></a-camera>
 
-        <!-- Left Hand: Pointer + Touch -->
-        <a-entity id="leftHand"
-                  super-hands="colliderEvent: raycaster-intersection; 
-                               colliderEventProperty: el; 
-                               colliderEndEvent: raycaster-intersection-cleared; 
-                               colliderEndEventProperty: el"
+        <!-- LEFT HAND -->
+        <a-entity id="L-hand"
                   oculus-touch-controls="hand: left"
-                  sphere-collider="objects: .clickable"
+                  physics-collider
+                  static-body="shape: sphere; sphereRadius: 0.05"
+                  super-hands="colliderEvent: collisions; 
+                               colliderEventProperty: els; 
+                               colliderEndEvent: collisions; 
+                               colliderEndEventProperty: clearedEls"
                   raycaster="objects: .clickable; showLine: true; far: 10"
-                  hand-controls="hand: left; handModelStyle: lowPoly"></a-entity>
+                  hand-controls="hand: left; handModelStyle: lowPoly">
+        </a-entity>
 
-        <!-- Right Hand: Pointer + Touch -->
-        <a-entity id="rightHand"
-                  super-hands="colliderEvent: raycaster-intersection; 
-                               colliderEventProperty: el; 
-                               colliderEndEvent: raycaster-intersection-cleared; 
-                               colliderEndEventProperty: el"
+        <!-- RIGHT HAND -->
+        <a-entity id="R-hand"
                   oculus-touch-controls="hand: right"
-                  sphere-collider="objects: .clickable"
+                  physics-collider
+                  static-body="shape: sphere; sphereRadius: 0.05"
+                  super-hands="colliderEvent: collisions; 
+                               colliderEventProperty: els; 
+                               colliderEndEvent: collisions; 
+                               colliderEndEventProperty: clearedEls"
                   raycaster="objects: .clickable; showLine: true; far: 10"
-                  hand-controls="hand: right; handModelStyle: lowPoly"></a-entity>
+                  hand-controls="hand: right; handModelStyle: lowPoly">
+        </a-entity>
       </a-entity>
 
     </a-scene>
