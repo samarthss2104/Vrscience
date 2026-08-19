@@ -2,26 +2,26 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>VR Science Lab - Interactive</title>
+    <title>Quest 3 Science Lab</title>
     <!-- Core A-Frame -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <!-- Physics System -->
+    <!-- Physics -->
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
-    <!-- Super Hands for Interaction -->
+    <!-- Super Hands (The interaction "Brain") -->
     <script src="https://unpkg.com/super-hands@^3.0.3/dist/super-hands.min.js"></script>
-    <!-- Extras for hand controls and physics helpers -->
+    <!-- Extras for hand models -->
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.misc.min.js"></script>
 
     <script>
-      // Logic for the chemistry experiment
-      AFRAME.registerComponent('reaction', {
+      // The Chemistry Logic
+      AFRAME.registerComponent('chemical-logic', {
         init: function () {
           this.el.addEventListener('collide', (e) => {
-            const collidedObj = e.detail.body.el;
-            if (collidedObj && collidedObj.id === 'beaker-sensor') {
-              const liquid = document.querySelector('#liquid');
-              const newColor = this.el.getAttribute('material').color;
-              liquid.setAttribute('material', 'color', newColor);
+            const target = e.detail.body.el;
+            if (target && target.id === 'beaker-base') {
+              const liquid = document.querySelector('#liquid-visual');
+              const color = this.el.getAttribute('material').color;
+              liquid.setAttribute('material', 'color', color);
             }
           });
         }
@@ -29,52 +29,62 @@
     </script>
   </head>
   <body>
-    <!-- physics="debug: true" will show wireframes so you can see if the hand is hitting the ball -->
+    <!-- We added "raycaster" to the scene so it knows how to "click" from far away -->
     <a-scene physics="debug: false; gravity: -9.8">
       
-      <a-assets>
-        <!-- Mixin for grabbable objects to save space -->
-        <a-mixin id="ball" 
-                 hoverable grabbable draggable droppable
-                 shadow
-                 dynamic-body="linearDamping: 0.5; angularDamping: 0.5"></a-mixin>
-      </a-assets>
+      <!-- Sky & Ground -->
+      <a-sky color="#1a1a1a"></a-sky>
+      <a-plane static-body rotation="-90 0 0" width="50" height="50" color="#333"></a-plane>
 
-      <a-sky color="#111"></a-sky>
-      <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
+      <!-- The Table -->
+      <a-box id="table" static-body position="0 0.7 -0.8" width="1.5" height="0.1" depth="0.8" color="#444"></a-box>
 
-      <!-- Lab Table (Static body means it won't move) -->
-      <a-box id="table" static-body 
-             position="0 0.6 -0.8" 
-             width="2" height="0.1" depth="1" 
-             color="#444"></a-box>
-
-      <!-- Beaker Setup -->
-      <a-entity position="0 0.65 -0.8">
-        <a-cylinder radius="0.15" height="0.3" material="opacity: 0.3; transparent: true; color: #fff"></a-cylinder>
-        <!-- The sensor is what triggers the color change -->
-        <a-cylinder id="beaker-sensor" static-body radius="0.15" height="0.1" visible="false"></a-cylinder>
-        <a-cylinder id="liquid" radius="0.14" height="0.1" position="0 -0.05 0" color="#fff"></a-cylinder>
+      <!-- The Beaker (Static) -->
+      <a-entity position="0 0.8 -0.8">
+        <a-cylinder radius="0.15" height="0.3" material="opacity: 0.3; transparent: true; color: white"></a-cylinder>
+        <!-- The invisible physics sensor -->
+        <a-cylinder id="beaker-base" static-body radius="0.15" height="0.05" position="0 -0.1 0" visible="false"></a-cylinder>
+        <!-- The visual liquid -->
+        <a-cylinder id="liquid-visual" radius="0.14" height="0.1" position="0 -0.1 0" color="#fff"></a-cylinder>
       </a-entity>
 
-      <!-- Experiment Items (The Chemicals) -->
-      <a-sphere mixin="ball" reaction position="-0.4 1.2 -0.8" radius="0.1" color="red" class="grabbable"></a-sphere>
-      <a-sphere mixin="ball" reaction position="0.4 1.2 -0.8" radius="0.1" color="blue" class="grabbable"></a-sphere>
-      <a-sphere mixin="ball" reaction position="0 1.2 -0.6" radius="0.1" color="green" class="grabbable"></a-sphere>
+      <!-- Interactive Chemicals (Grabbable) -->
+      <!-- Red -->
+      <a-sphere class="clickable" chemical-logic
+                dynamic-body="shape: sphere; mass: 2" 
+                hoverable grabbable draggable droppable
+                position="-0.3 1.2 -0.8" radius="0.1" color="red"></a-sphere>
+      <!-- Blue -->
+      <a-sphere class="clickable" chemical-logic
+                dynamic-body="shape: sphere; mass: 2" 
+                hoverable grabbable draggable droppable
+                position="0.3 1.2 -0.8" radius="0.1" color="blue"></a-sphere>
 
-      <!-- Player & Controllers -->
+      <!-- Meta Quest 3 Controllers Setup -->
       <a-entity id="rig">
         <a-camera position="0 1.6 0.5" look-controls></a-camera>
-        
-        <!-- Left Controller -->
-        <a-entity sphere-collider="objects: .grabbable" 
-                  super-hands 
-                  hand-controls="hand: left; handModelStyle: lowPoly; color: #ffcccc"></a-entity>
-        
-        <!-- Right Controller -->
-        <a-entity sphere-collider="objects: .grabbable" 
-                  super-hands 
-                  hand-controls="hand: right; handModelStyle: lowPoly; color: #ffcccc"></a-entity>
+
+        <!-- Left Hand: Pointer + Touch -->
+        <a-entity id="leftHand"
+                  super-hands="colliderEvent: raycaster-intersection; 
+                               colliderEventProperty: el; 
+                               colliderEndEvent: raycaster-intersection-cleared; 
+                               colliderEndEventProperty: el"
+                  oculus-touch-controls="hand: left"
+                  sphere-collider="objects: .clickable"
+                  raycaster="objects: .clickable; showLine: true; far: 10"
+                  hand-controls="hand: left; handModelStyle: lowPoly"></a-entity>
+
+        <!-- Right Hand: Pointer + Touch -->
+        <a-entity id="rightHand"
+                  super-hands="colliderEvent: raycaster-intersection; 
+                               colliderEventProperty: el; 
+                               colliderEndEvent: raycaster-intersection-cleared; 
+                               colliderEndEventProperty: el"
+                  oculus-touch-controls="hand: right"
+                  sphere-collider="objects: .clickable"
+                  raycaster="objects: .clickable; showLine: true; far: 10"
+                  hand-controls="hand: right; handModelStyle: lowPoly"></a-entity>
       </a-entity>
 
     </a-scene>
