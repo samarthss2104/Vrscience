@@ -2,30 +2,25 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>VR Science Suite - FIXED</title>
-    <!-- Using a very stable version of A-Frame -->
+    <title>Science Lab Presentation - Laptop Optimized</title>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
 
     <script>
-      // Global Lab State
+      // Global State
       let state = {
         mode: 'pendulum',
+        // Pendulum Vars
         p_len: 2, p_mass: 1, p_time: 10, p_running: false, p_elapsed: 0,
-        pull_pulleys: 1, pull_effort: 10, pull_load: 0, pull_selected: 0, pull_y: 1.2
+        // Pulley Vars
+        pull_pulleys: 1, pull_effort: 20, pull_load: 0, pull_selected_mass: 0, pull_selected_name: 'None', pull_y: 1.5
       };
 
-      // MAIN CONTROLLER COMPONENT
       AFRAME.registerComponent('science-lab', {
         init: function () {
           this.updateUI();
-          
-          // Keyboard Controls
+          // Laptop Shortcut: 'M' to switch modes
           window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'm') this.toggleMode();
-            if (e.code === 'Space') {
-                if(state.mode === 'pendulum') state.p_running = true;
-                else this.addLoad();
-            }
           });
         },
 
@@ -36,68 +31,49 @@
           this.updateUI();
         },
 
-        adjust: function(type, val) {
-          if (type === 'l') state.p_len = Math.max(0.5, state.p_len + val);
-          if (type === 'm') state.p_mass = Math.max(0.1, state.p_mass + val);
-          if (type === 'p_n') state.pull_pulleys = Math.max(1, Math.min(4, state.pull_pulleys + val));
-          if (type === 'p_e') state.pull_effort = Math.max(0, state.pull_effort + val);
-          this.updateUI();
-        },
-
-        selectMass: function(m) {
-          state.pull_selected = m;
-          this.updateUI();
-        },
-
-        addLoad: function() {
-          state.pull_load += state.pull_selected;
-          this.updateUI();
-        },
-
         updateUI: function() {
-          // Pendulum UI
+          // Pendulum Text
           const period = 2 * Math.PI * Math.sqrt(state.p_len / 9.81);
           const osc = state.p_time / period;
+          document.querySelector('#p-display').setAttribute('value', 
+            `Length: ${state.p_len.toFixed(1)}m\nMass: ${state.p_mass.toFixed(1)}kg\nTest Time: ${state.p_time}s\nOscillations: ${osc.toFixed(2)}`);
           
-          document.querySelector('#mode-txt').setAttribute('value', "MODE: " + state.mode.toUpperCase());
-          document.querySelector('#p-data').setAttribute('value', `Length: ${state.p_len.toFixed(1)}m\nMass: ${state.p_mass.toFixed(1)}kg\nOscillations: ${osc.toFixed(2)}`);
-          
-          // Pulley UI
-          const weight = state.pull_load * 9.81;
-          const req = weight / state.pull_pulleys;
-          document.querySelector('#pull-data').setAttribute('value', `Load: ${weight.toFixed(1)}N\nMech Adv: ${state.pull_pulleys}\nRequired: ${req.toFixed(1)}N\nEffort: ${state.pull_effort}N`);
-          document.querySelector('#sel-txt').setAttribute('value', "Selected: " + state.pull_selected + "kg");
-
-          // Update Visuals
+          // Visual Pendulum Update
           document.querySelector('#string').setAttribute('height', state.p_len);
           document.querySelector('#string').setAttribute('position', `0 ${-state.p_len/2} 0`);
           document.querySelector('#bob').setAttribute('position', `0 ${-state.p_len} 0`);
           document.querySelector('#bob').setAttribute('radius', 0.05 + (state.p_mass * 0.03));
+
+          // Pulley Text
+          const weight = state.pull_load * 9.81;
+          const mechAdv = state.pull_pulleys;
+          const reqEffort = weight / mechAdv;
+          document.querySelector('#pull-math-text').setAttribute('value', 
+            `Total Mass: ${state.pull_load}kg\nWeight: ${weight.toFixed(1)}N\nMechanical Advantage: ${mechAdv}\nReq. Effort: ${reqEffort.toFixed(1)}N\nApplied Effort: ${state.pull_effort}N`);
+          
+          document.querySelector('#p-num-txt').setAttribute('value', "Pulleys: " + state.pull_pulleys);
+          document.querySelector('#eff-txt').setAttribute('value', "Effort: " + state.pull_effort + "N");
+          document.querySelector('#sel-txt').setAttribute('value', "Selected: " + state.pull_selected_name + " (" + state.pull_selected_mass + "kg)");
         },
 
         tick: function (t, dt) {
           const ds = dt / 1000;
           
-          // Pendulum Animation
-          if (state.p_running) {
+          if (state.mode === 'pendulum' && state.p_running) {
             state.p_elapsed += ds;
-            if (state.p_elapsed >= state.p_time) {
-              state.p_running = false;
-              state.p_elapsed = 0;
-            }
+            if (state.p_elapsed >= state.p_time) { state.p_running = false; state.p_elapsed = 0; }
             const period = 2 * Math.PI * Math.sqrt(state.p_len / 9.81);
             const angle = 0.5 * Math.cos((2 * Math.PI * state.p_elapsed) / period);
             document.querySelector('#pivot').setAttribute('rotation', `0 0 ${angle * (180/Math.PI)}`);
           }
 
-          // Pulley Animation
           if (state.mode === 'pulley') {
             const weight = state.pull_load * 9.81;
             const netForce = state.pull_effort - (weight / state.pull_pulleys);
-            if (Math.abs(netForce) > 0.1) {
+            if (Math.abs(netForce) > 0.5) {
               state.pull_y += netForce * 0.002;
-              state.pull_y = Math.max(0.5, Math.min(2.8, state.pull_y));
-              document.querySelector('#bucket').setAttribute('position', `0 ${state.pull_y} 0`);
+              state.pull_y = Math.max(0.6, Math.min(2.8, state.pull_y));
+              document.querySelector('#bucket-model').setAttribute('position', `0 ${state.pull_y} 0`);
               document.querySelector('#rope').setAttribute('height', 3.2 - state.pull_y);
               document.querySelector('#rope').setAttribute('position', `0 ${(3.2 + state.pull_y)/2} 0`);
             }
@@ -105,38 +81,46 @@
         }
       });
 
-      // Simple Click Handler
-      AFRAME.registerComponent('click-btn', {
-        schema: { act: {type: 'string'}, v: {type: 'number'} },
+      AFRAME.registerComponent('click-handler', {
+        schema: { action: {type: 'string'}, val: {type: 'number'}, name: {type: 'string'} },
         init: function () {
           this.el.addEventListener('click', () => {
             const lab = document.querySelector('a-scene').components['science-lab'];
-            if (this.data.act === 'start') state.p_running = true;
-            else if (this.data.act === 'mode') lab.toggleMode();
-            else if (this.data.act === 'sel') lab.selectMass(this.data.v);
-            else if (this.data.act === 'add') lab.addLoad();
-            else if (this.data.act === 'clear') { state.pull_load = 0; lab.updateUI(); }
-            else lab.adjust(this.data.act, this.data.v);
+            switch(this.data.action) {
+              case 'mode': lab.toggleMode(); break;
+              // Pendulum
+              case 'p_l': state.p_len = Math.max(0.5, state.p_len + this.data.val); break;
+              case 'p_m': state.p_mass = Math.max(0.1, state.p_mass + this.data.val); break;
+              case 'p_t': state.p_time = Math.max(1, state.p_time + this.data.val); break;
+              case 'p_start': state.p_running = true; state.p_elapsed = 0; break;
+              // Pulley
+              case 'add_pulley': state.pull_pulleys = Math.max(1, Math.min(4, state.pull_pulleys + 1)); break;
+              case 'sub_pulley': state.pull_pulleys = Math.max(1, state.pull_pulleys - 1); break;
+              case 'add_eff': state.pull_effort += 10; break;
+              case 'sub_eff': state.pull_effort = Math.max(0, state.pull_effort - 10); break;
+              case 'select_item': state.pull_selected_mass = this.data.val; state.pull_selected_name = this.data.name; break;
+              case 'add_to_pulley': state.pull_load += state.pull_selected_mass; break;
+              case 'reset_pulley': state.pull_load = 0; break;
+            }
+            lab.updateUI();
           });
         }
       });
     </script>
   </head>
   <body>
-    <!-- cursor="rayOrigin: mouse" ensures it works on Laptop. laser-controls ensures it works on VR -->
     <a-scene science-lab cursor="rayOrigin: mouse">
       
-      <a-entity laser-controls="hand: right"></a-entity>
-      <a-entity laser-controls="hand: left"></a-entity>
+      <!-- Laptop Presentation Header -->
+      <a-entity position="0 3.8 -3">
+        <a-text value="SCIENCE LAB" align="center" width="6" color="white"></a-text>
+        <a-box click-handler="action: mode" position="0 -0.4 0" width="1.5" height="0.3" depth="0.1" color="#FF8800" class="clickable">
+          <a-text value="SWITCH MODE (M)" align="center" position="0 0 0.06" width="3"></a-text>
+        </a-box>
+      </a-entity>
 
-      <!-- Global Title -->
-      <a-text id="mode-txt" value="MODE: PENDULUM" position="0 3.8 -3" align="center" width="6"></a-text>
-      <a-box click-btn="act: mode" position="0 3.4 -3" width="1.2" height="0.3" depth="0.1" color="#FF8800">
-        <a-text value="SWITCH MODE (M)" align="center" position="0 0 0.06" width="2.5"></a-text>
-      </a-box>
-
-      <!-- PENDULUM MODE -->
-      <a-entity id="pendulum-group">
+      <!-- ================= PENDULUM MODE ================= -->
+      <a-entity id="pendulum-group" visible="true">
         <a-entity position="0 0 -3">
           <a-box position="0 3.2 0" width="3" height="0.1" depth="0.1" color="#888"></a-box>
           <a-entity id="pivot" position="0 3.2 0">
@@ -146,64 +130,88 @@
 
           <!-- Left Controls -->
           <a-entity position="-2 1.5 0">
-            <a-text value="Length" position="0 0.8 0" align="center" width="3"></a-text>
-            <a-box click-btn="act: l; v: 0.5" position="-0.2 0.5 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-            <a-box click-btn="act: l; v: -0.5" position="0.2 0.5 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
-            
-            <a-box click-btn="act: start" position="0 -0.2 0" width="1" height="0.4" depth="0.1" color="blue">
-                <a-text value="START (SPACE)" align="center" position="0 0 0.06" width="3"></a-text>
+            <a-text value="Length (+/-)" position="0 1.1 0" align="center" width="3"></a-text>
+            <a-box click-handler="action: p_l; val: 0.5" position="-0.2 0.8 0" width="0.2" height="0.2" color="green"></a-box>
+            <a-box click-handler="action: p_l; val: -0.5" position="0.2 0.8 0" width="0.2" height="0.2" color="red"></a-box>
+
+            <a-text value="Mass (+/-)" position="0 0.5 0" align="center" width="3"></a-text>
+            <a-box click-handler="action: p_m; val: 0.5" position="-0.2 0.2 0" width="0.2" height="0.2" color="green"></a-box>
+            <a-box click-handler="action: p_m; val: -0.5" position="0.2 0.2 0" width="0.2" height="0.2" color="red"></a-box>
+
+            <a-text value="Time (+/-)" position="0 -0.1 0" align="center" width="3"></a-text>
+            <a-box click-handler="action: p_t; val: 5" position="-0.2 -0.4 0" width="0.2" height="0.2" color="green"></a-box>
+            <a-box click-handler="action: p_t; val: -5" position="0.2 -0.4 0" width="0.2" height="0.2" color="red"></a-box>
+
+            <a-box click-handler="action: p_start" position="0 -0.9 0" width="1.2" height="0.4" color="blue">
+                <a-text value="START EXPERIMENT" align="center" position="0 0 0.06" width="2.5"></a-text>
             </a-box>
           </a-entity>
 
           <!-- Right Display -->
           <a-entity position="2 1.5 0">
-            <a-plane color="#333" width="1.8" height="1.2"></a-plane>
-            <a-text id="p-data" align="center" position="0 0 0.05" width="3.5"></a-text>
+            <a-plane color="#333" width="2" height="1.5"></a-plane>
+            <a-text id="p-display" align="center" position="0 0 0.05" width="4" value="Length: 2.0m\nMass: 1.0kg\nTime: 10s"></a-text>
           </a-entity>
         </a-entity>
       </a-entity>
 
-      <!-- PULLEY MODE -->
+      <!-- ================= PULLEY MODE ================= -->
       <a-entity id="pulley-group" visible="false">
         <a-entity position="0 0 -3">
-          <a-box position="0 3.3 0" width="1" height="0.1" depth="0.1" color="#888"></a-box>
+          <!-- Support Beam & Pulleys -->
+          <a-box position="0 3.3 0" width="1.2" height="0.1" depth="0.1" color="#888"></a-box>
           <a-cylinder rotation="90 0 0" position="0 3.2 0" radius="0.15" height="0.1" color="#555"></a-cylinder>
+          
+          <!-- Moving Parts -->
           <a-cylinder id="rope" radius="0.01" color="#EEE"></a-cylinder>
-          <a-entity id="bucket">
-            <a-cylinder radius="0.2" height="0.3" color="#666"></a-cylinder>
-            <a-text id="p-mass-txt" value="LOAD" align="center" position="0 0 0.22" width="3"></a-text>
+          <a-entity id="bucket-model">
+            <a-cylinder radius="0.25" height="0.4" color="#666" open-ended="false"></a-cylinder>
+            <a-text value="LOAD" align="center" position="0 0 0.26" width="4"></a-text>
           </a-entity>
 
-          <!-- Pulley Controls -->
-          <a-entity position="-2 1.5 0">
-            <a-text value="Pulleys" position="0 1 0" align="center" width="3"></a-text>
-            <a-box click-btn="act: p_n; v: 1" position="-0.2 0.7 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-            <a-box click-btn="act: p_n; v: -1" position="0.2 0.7 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
+          <!-- LEFT MENU: ITEM SELECTION -->
+          <a-entity position="-2.2 1.5 0">
+            <a-text value="ITEM MENU" position="0 1.2 0" align="center" width="4" color="#FFCC00"></a-text>
+            
+            <a-box click-handler="action: select_item; val: 5; name: Bucket" position="0 0.8 0" width="1.4" height="0.3" color="#444">
+                <a-text value="Bucket (5kg)" align="center" position="0 0 0.06" width="3"></a-text>
+            </a-box>
+            <a-box click-handler="action: select_item; val: 10; name: Ball" position="0 0.4 0" width="1.4" height="0.3" color="#444">
+                <a-text value="Ball (10kg)" align="center" position="0 0 0.06" width="3"></a-text>
+            </a-box>
 
-            <a-text value="Effort" position="0 0.3 0" align="center" width="3"></a-text>
-            <a-box click-btn="act: p_e; v: 5" position="-0.2 0 0" width="0.2" height="0.2" depth="0.1" color="green"></a-box>
-            <a-box click-btn="act: p_e; v: -5" position="0.2 0 0" width="0.2" height="0.2" depth="0.1" color="red"></a-box>
-
-            <a-box click-btn="act: add" position="0 -0.5 0" width="1" height="0.3" depth="0.1" color="blue">
-                <a-text value="ADD (SPACE)" align="center" position="0 0 0.06" width="3"></a-text>
+            <a-text id="sel-txt" value="Selected: None" position="0 0 0" align="center" width="3"></a-text>
+            
+            <a-box click-handler="action: add_to_pulley" position="0 -0.5 0" width="1.4" height="0.4" color="blue">
+                <a-text value="ADD TO PULLEY" align="center" position="0 0 0.06" width="3"></a-text>
+            </a-box>
+            <a-box click-handler="action: reset_pulley" position="0 -1.0 0" width="1.4" height="0.3" color="#cc0000">
+                <a-text value="EMPTY BUCKET" align="center" position="0 0 0.06" width="3"></a-text>
             </a-box>
           </a-entity>
 
-          <!-- Pulley Shelf -->
-          <a-entity position="2 1 0">
-            <a-text id="sel-txt" value="Selected: 0kg" position="0 1.5 0" align="center" width="3"></a-text>
-            <a-sphere click-btn="act: sel; v: 1" position="-0.5 1.1 0" radius="0.1" color="yellow"></a-sphere>
-            <a-sphere click-btn="act: sel; v: 5" position="0 1.1 0" radius="0.15" color="orange"></a-sphere>
-            <a-sphere click-btn="act: sel; v: 10" position="0.5 1.1 0" radius="0.2" color="purple"></a-sphere>
-            <a-plane color="#222" width="2" height="0.8" position="0 0.3 0"></a-plane>
-            <a-text id="pull-data" align="center" position="0 0.3 0.05" width="3"></a-text>
+          <!-- CENTER CONTROLS: CONFIGURE -->
+          <a-entity position="0 0.5 0">
+            <a-text id="p-num-txt" value="Pulleys: 1" position="-0.7 0 0" width="3"></a-text>
+            <a-box click-handler="action: add_pulley" position="-0.1 0 0" width="0.2" height="0.2" color="green"></a-box>
+            <a-box click-handler="action: sub_pulley" position="0.2 0 0" width="0.2" height="0.2" color="red"></a-box>
+
+            <a-text id="eff-txt" value="Effort: 20N" position="0.7 0 0" width="3"></a-text>
+            <a-box click-handler="action: add_eff" position="1.3 0 0" width="0.2" height="0.2" color="green"></a-box>
+            <a-box click-handler="action: sub_eff" position="1.6 0 0" width="0.2" height="0.2" color="red"></a-box>
+          </a-entity>
+
+          <!-- RIGHT PANEL: MATH -->
+          <a-entity position="2.2 1.5 0">
+            <a-plane color="#222" width="2.2" height="1.8"></a-plane>
+            <a-text id="pull-math-text" align="center" position="0 0 0.05" width="3.5" value="Waiting..."></a-text>
           </a-entity>
         </a-entity>
       </a-entity>
 
       <a-sky color="#111"></a-sky>
       <a-camera position="0 1.6 0">
-        <a-cursor color="white"></a-cursor>
+        <a-cursor fuse="false" color="#FFF"></a-cursor>
       </a-camera>
     </a-scene>
   </body>
